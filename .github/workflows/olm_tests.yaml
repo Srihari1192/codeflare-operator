@@ -3,15 +3,12 @@
 name: OLM Install and Upgrade
 
 on:
-  pull_request:
-    branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.adoc'
-      - '**.md'
-      - 'LICENSE'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag to be used for operator image'
+        required: true
+        default: 'v0.0.0-dev'
 
 concurrency:
   group: ${{ github.head_ref }}-${{ github.workflow }}
