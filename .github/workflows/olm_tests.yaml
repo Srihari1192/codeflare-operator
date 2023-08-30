@@ -119,6 +119,14 @@ jobs:
         run: |
           make setup-e2e
 
+      - name: Run Ray cluster tests using MCAD
+        run: |
+          export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
+          echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
+
+          set -euo pipefail
+          go test -timeout 30m -v ./test/e2e -json -run TestMNISTRayJobMCADRayCluster 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt &
+
       - name: Build operator and catalog image
         run: |
           make image-push
@@ -165,10 +173,6 @@ jobs:
 
       - name: Run e2e tests against built operator
         run: |
-          export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
-          echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
-
-          set -euo pipefail
           go test -timeout 30m -v ./test/e2e -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
 
       - name: Print CodeFlare operator logs
