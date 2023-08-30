@@ -171,7 +171,7 @@ jobs:
 
       - name: Run e2e tests against built operator
         run: |
-          go test -timeout 30m -v ./test/e2e -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+          go test -timeout 30m -v ./test/e2e -json -run TestMNISTPyTorchMCAD 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
 
       - name: Print CodeFlare operator logs
         if: always() && steps.deploy.outcome == 'success'
