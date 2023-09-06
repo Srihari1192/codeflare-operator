@@ -41,7 +41,7 @@ import (
 func TestMNISTRayJobMCADRayCluster(t *testing.T) {
 	test := With(t)
 	test.T().Parallel()
-
+	test.T().Skip("Requires https://github.com/project-codeflare/codeflare-sdk/pull/271")
 	// Create a namespace
 	namespace := test.NewTestNamespace()
 
