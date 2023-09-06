@@ -28,7 +28,7 @@ func TestMnistJobSubmit(t *testing.T) {
 			Kind:       "ConfigMap",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mnist-raycluster-sdk",
+			Name:      "raycluster-sdk",
 			Namespace: namespace.Name,
 		},
 		BinaryData: map[string][]byte{
@@ -80,7 +80,7 @@ func TestMnistJobSubmit(t *testing.T) {
 							// FIXME: switch to base Python image once the dependency on OpenShift CLI is removed
 							// See https://github.com/project-codeflare/codeflare-sdk/pull/146
 							Image:   "quay.io/opendatahub/notebooks:jupyter-minimal-ubi8-python-3.8-4c8f26e",
-							Command: []string{"/bin/sh", "-c", "pip install codeflare-sdk==" + GetCodeFlareSDKVersion() + " && cp /test/* . && python mnist_raycluster_sdk.py" + " " + namespace.Name},
+							Command: []string{"/bin/sh", "-c", "pip install codeflare-sdk==" + GetCodeFlareSDKVersion() + " && cp /test/* . && python /test/e2e/raycluster_sdk.py" + " " + namespace.Name},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "test",
