@@ -59,7 +59,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 		},
 		BinaryData: map[string][]byte{
 			// SDK script
-			"raycluster_sdk.py": ReadFile(test, "mnist_raycluster_sdk.py"),
+			"raycluster_sdk.py": ReadFile(test, "raycluster_sdk.py"),
 			// pip requirements
 			"requirements.txt": ReadFile(test, "mnist_pip_requirements.txt"),
 			// MNIST training script
