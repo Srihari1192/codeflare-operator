@@ -24,8 +24,9 @@ jobs:
       VERSION: "v0.0.0-ghaction"  # Need to supply some semver version for bundle to be properly generated
       CATALOG_BASE_IMG: "registry.access.redhat.com/redhat/community-operator-index:v4.13"
       CODEFLARE_TEST_TIMEOUT_SHORT: "1m"
-      CODEFLARE_TEST_TIMEOUT_MEDIUM: "5m"
-      CODEFLARE_TEST_TIMEOUT_LONG: "10m"
+      CODEFLARE_TEST_TIMEOUT_MEDIUM: "10m"
+      CODEFLARE_TEST_TIMEOUT_LONG: "20m"
+      OLM_UPGRADE_NAMESPACE: ''
 
     steps:
       - name: Cleanup
@@ -116,14 +117,16 @@ jobs:
       - name: Deploy CodeFlare stack (MCAD, KubeRay)
         run: |
           make setup-e2e
-
+    
       - name: Run Ray cluster Up test
         run: |
           export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
           echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
-          export CODEFLARE_TEST_TIMEOUT_LONG=20
           set -euo pipefail
-          go test -timeout 30m -v ./test/e2e -run TestMNISTRayClusterSDK -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt 
+          go test -timeout 30m -v ./test/e2e -run TestMNISTRayClusterUp -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+          go test -timeout 30m -v ./test/e2e -run TestMnistJobSubmit -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+        env:
+          RUN_OLM_TESTS: true
         
       - name: Build operator and catalog image
         run: |
@@ -176,6 +179,9 @@ jobs:
 
           set -euo pipefail
           go test -timeout 30m -v ./test/e2e -run TestMnistJobSubmit -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+        env:
+          RUN_OLM_TESTS: true
+          OLM_UPGRADE_NAMESPACE: ${{ env.OLM_UPGRADE_NAMESPACE }}
 
       - name: Print CodeFlare operator logs
         if: always() && steps.deploy.outcome == 'success'

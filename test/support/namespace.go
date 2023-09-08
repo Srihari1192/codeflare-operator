@@ -54,7 +54,7 @@ func deleteTestNamespace(t Test, namespace *corev1.Namespace) {
 	t.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func CreateTestNamespace(t Test, options ...Option[*corev1.Namespace]) *corev1.Namespace {
+func CreateTestNamespaceWithName(t Test, namespaceName string, options ...Option[*corev1.Namespace]) *corev1.Namespace {
 	t.T().Helper()
 	namespace := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -62,7 +62,7 @@ func CreateTestNamespace(t Test, options ...Option[*corev1.Namespace]) *corev1.N
 			Kind:       "Namespace",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-ns-",
+			Name: namespaceName,
 		},
 	}
 
