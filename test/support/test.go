@@ -135,3 +135,14 @@ func (t *T) NewTestNamespace(options ...Option[*corev1.Namespace]) *corev1.Names
 	})
 	return namespace
 }
+
+func (t *T) CreateTestNamespace(options ...Option[*corev1.Namespace]) *corev1.Namespace {
+	t.T().Helper()
+	namespace := createTestNamespace(t, options...)
+	return namespace
+}
+
+func (t *T) DeleteTestNamespace(namespace *corev1.Namespace) {
+	t.T().Helper()
+	deleteTestNamespace(t, namespace)
+}

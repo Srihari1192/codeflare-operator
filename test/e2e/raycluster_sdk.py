@@ -7,7 +7,7 @@ from codeflare_sdk.cluster.cluster import Cluster, ClusterConfiguration
 namespace = sys.argv[1]
 
 cluster = Cluster(ClusterConfiguration(
-    name='mnistray',
+    name='mnist',
     namespace=namespace,
     num_workers=1,
     min_cpus='500m',

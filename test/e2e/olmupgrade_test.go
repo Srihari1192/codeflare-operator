@@ -17,6 +17,8 @@ limitations under the License.
 package e2e
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -37,15 +39,13 @@ import (
 // This covers the installation of the CodeFlare SDK, as well as the RBAC required
 // for the SDK to successfully perform requests to the cluster, on behalf of the
 // impersonated user.
-func TestMNISTRayClusterSDK(t *testing.T) {
+
+func TestMNISTRayClusterUp(t *testing.T) {
 	test := With(t)
 	test.T().Parallel()
 
-	// Currently blocked by https://github.com/project-codeflare/codeflare-sdk/pull/271 , remove the skip once SDK with the PR is released
-	//test.T().Skip("Requires https://github.com/project-codeflare/codeflare-sdk/pull/271")
-
 	// Create a namespace
-	namespace := test.NewTestNamespace()
+	namespace := CreateTestNamespace(test)
 
 	// Test configuration
 	config := &corev1.ConfigMap{
@@ -59,7 +59,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 		},
 		BinaryData: map[string][]byte{
 			// SDK script
-			"raycluster_sdk.py": ReadFile(test, "mnist_raycluster_sdk.py"),
+			"raycluster_sdk.py": ReadFile(test, "raycluster_sdk.py"),
 			// pip requirements
 			"requirements.txt": ReadFile(test, "mnist_pip_requirements.txt"),
 			// MNIST training script
@@ -140,6 +140,65 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 	_, err = test.Client().Core().RbacV1().RoleBindings(namespace.Name).Create(test.Ctx(), roleBinding, metav1.CreateOptions{})
 	test.Expect(err).NotTo(HaveOccurred())
 
+	// set env varible for namespace to use in rayjob submit tests
+	err = os.Setenv("OLM_UPGRADE_NAMESPACE", namespace.Name)
+	if err != nil {
+		fmt.Println("Error setting environment variable:", err)
+		return
+	}
+	//Get the value of the environment variable
+	olmUpgradeNamespace := os.Getenv("OLM_UPGRADE_NAMESPACE")
+	fmt.Println("OLM_UPGRADE_NAMESPACE:", olmUpgradeNamespace)
+}
+
+func TestMnistJobSubmit(t *testing.T) {
+
+	test := With(t)
+	test.T().Parallel()
+
+	// Create a namespace
+	//namespace := os.Getenv("OLM_UPGRADE_NAMESPACE")
+	namespace := "test-ns-tczl8"
+	fmt.Println("OLM_UPGRADE_NAMESPACE:", namespace)
+
+	// Test configuration
+	config := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mnist-ray-job",
+			Namespace: namespace,
+		},
+		BinaryData: map[string][]byte{
+			// SDK script
+			"mnist_rayjob.py": ReadFile(test, "mnist_rayjob.py"),
+			// pip requirements
+			"requirements.txt": ReadFile(test, "mnist_pip_requirements.txt"),
+			// MNIST training script
+			"mnist.py": ReadFile(test, "mnist.py"),
+		},
+		Immutable: Ptr(true),
+	}
+	config, err := test.Client().Core().CoreV1().ConfigMaps(namespace).Create(test.Ctx(), config, metav1.CreateOptions{})
+	test.Expect(err).NotTo(HaveOccurred())
+	test.T().Logf("Created ConfigMap %s/%s successfully", config.Namespace, config.Name)
+
+	// SDK client RBAC
+	serviceAccount := &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "ServiceAccount",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ray-user",
+			Namespace: namespace,
+		},
+	}
+	serviceAccount, err = test.Client().Core().CoreV1().ServiceAccounts(namespace).Create(test.Ctx(), serviceAccount, metav1.CreateOptions{})
+	test.Expect(err).NotTo(HaveOccurred())
+
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: batchv1.SchemeGroupVersion.String(),
@@ -147,7 +206,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sdk",
-			Namespace: namespace.Name,
+			Namespace: namespace,
 		},
 		Spec: batchv1.JobSpec{
 			Completions:  Ptr(int32(1)),
@@ -161,7 +220,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 							// FIXME: switch to base Python image once the dependency on OpenShift CLI is removed
 							// See https://github.com/project-codeflare/codeflare-sdk/pull/146
 							Image:   "quay.io/opendatahub/notebooks:jupyter-minimal-ubi8-python-3.8-4c8f26e",
-							Command: []string{"/bin/sh", "-c", "pip install codeflare-sdk==" + GetCodeFlareSDKVersion() + " && cp /test/* . && python raycluster_sdk.py" + " " + namespace.Name},
+							Command: []string{"/bin/sh", "-c", "pip install codeflare-sdk==" + GetCodeFlareSDKVersion() + " && cp /test/* . && python mnist_rayjob.py" + " " + namespace},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "test",
@@ -188,7 +247,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 			},
 		},
 	}
-	job, err = test.Client().Core().BatchV1().Jobs(namespace.Name).Create(test.Ctx(), job, metav1.CreateOptions{})
+	job, err = test.Client().Core().BatchV1().Jobs(namespace).Create(test.Ctx(), job, metav1.CreateOptions{})
 	test.Expect(err).NotTo(HaveOccurred())
 	test.T().Logf("Created Job %s/%s successfully", job.Namespace, job.Name)
 
