@@ -75,3 +75,12 @@ func CreateTestNamespaceWithName(t Test, namespaceName string, options ...Option
 
 	return namespace
 }
+
+func DeleteTestNamespace(t Test, namespaceName string) {
+	t.T().Helper()
+	propagationPolicy := metav1.DeletePropagationBackground
+	err := t.Client().Core().CoreV1().Namespaces().Delete(t.Ctx(), namespaceName, metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	})
+	t.Expect(err).NotTo(gomega.HaveOccurred())
+}
