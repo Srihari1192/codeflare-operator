@@ -3,15 +3,13 @@
 name: OLM Install and Upgrade
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.adoc'
-      - '**.md'
-      - 'LICENSE'
+      - '**'
+    tags-ignore:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.head_ref }}-${{ github.workflow }}
@@ -25,9 +23,9 @@ jobs:
       OLM_VERSION: v0.24.0
       VERSION: "v0.0.0-ghaction"  # Need to supply some semver version for bundle to be properly generated
       CATALOG_BASE_IMG: "registry.access.redhat.com/redhat/community-operator-index:v4.13"
-      CODEFLARE_TEST_TIMEOUT_SHORT: "1m"
-      CODEFLARE_TEST_TIMEOUT_MEDIUM: "5m"
-      CODEFLARE_TEST_TIMEOUT_LONG: "10m"
+      CODEFLARE_TEST_TIMEOUT_SHORT: "5m"
+      CODEFLARE_TEST_TIMEOUT_MEDIUM: "10m"
+      CODEFLARE_TEST_TIMEOUT_LONG: "20m"
 
     steps:
       - name: Cleanup

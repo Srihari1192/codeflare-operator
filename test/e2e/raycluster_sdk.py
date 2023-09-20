@@ -15,10 +15,13 @@ cluster = Cluster(ClusterConfiguration(
     min_memory=0.5,
     max_memory=1,
     num_gpus=0,
+    image="quay.io/project-codeflare/ray:2.5.0-py38-cu116", #current default
     instascale=False,
 ))
 
 cluster.up()
+
+sleep(120)
 
 cluster.status()
 
