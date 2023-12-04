@@ -3,15 +3,13 @@
 name: OLM Install and Upgrade
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.adoc'
-      - '**.md'
-      - 'LICENSE'
+      - '**'
+    tags-ignore:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.head_ref }}-${{ github.workflow }}
