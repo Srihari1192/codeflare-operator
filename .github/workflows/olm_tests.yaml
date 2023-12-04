@@ -142,7 +142,7 @@ jobs:
             kubectl get pods -n openshift-operators
             kubectl describe pods/${ORIGINAL_POD_NAME} -n openshift-operators
             # Add more commands as needed to gather information
-            echo "printing logs again"
+            echo "printing logs again to check logs complete"
             kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
             exit 1
           }
