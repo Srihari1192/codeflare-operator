@@ -137,10 +137,13 @@ jobs:
 
           echo Waiting for previous operator pod to get deleted
           kubectl wait --timeout=120s --for=delete pod/${ORIGINAL_POD_NAME} -n openshift-operators || { 
+            kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
             echo "Error: Timed out waiting for pod deletion. Printing additional information for troubleshooting..."
             kubectl get pods -n openshift-operators
             kubectl describe pods/${ORIGINAL_POD_NAME} -n openshift-operators
             # Add more commands as needed to gather information
+            echo "printing logs again"
+            kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
             exit 1
           }
           echo "Pod deletion successful. Continuing with the next steps."
