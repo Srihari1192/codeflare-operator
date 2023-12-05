@@ -144,6 +144,8 @@ jobs:
             # Add more commands as needed to gather information
             echo "printing logs again to check logs complete"
             kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
+            echo "pod status"
+            kubectl get pods -n openshift-operators
             exit 1
           }
           kubectl get pods -n openshift-operators
