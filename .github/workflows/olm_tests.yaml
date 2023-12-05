@@ -136,7 +136,7 @@ jobs:
           kubectl patch CatalogSource codeflare-olm-test -n olm --type merge --patch "{\"spec\":{\"image\":\"${CATALOG_IMG}\"}}"
 
           echo Waiting for previous operator pod to get deleted
-          kubectl wait --timeout=120s --for=delete pod/${ORIGINAL_POD_NAME} -n openshift-operators || { 
+          kubectl wait --timeout=180s --for=delete pod/${ORIGINAL_POD_NAME} -n openshift-operators || { 
             kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
             echo "Error: Timed out waiting for pod deletion. Printing additional information for troubleshooting..."
             kubectl get pods -n openshift-operators
