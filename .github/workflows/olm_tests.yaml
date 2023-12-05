@@ -146,6 +146,7 @@ jobs:
             kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
             exit 1
           }
+          kubectl get pods -n openshift-operators
           echo "Pod deletion successful. Continuing with the next steps."
 
           echo Waiting for Subscription to be ready
