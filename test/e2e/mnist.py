@@ -15,6 +15,7 @@
 import os
 
 import torch
+import time
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from torch import nn
@@ -32,6 +33,7 @@ print("prior to running the trainer")
 print("MASTER_ADDR: is ", os.getenv("MASTER_ADDR"))
 print("MASTER_PORT: is ", os.getenv("MASTER_PORT"))
 
+time.sleep(120)
 
 class LitMNIST(LightningModule):
     def __init__(self, data_dir=PATH_DATASETS, hidden_size=64, learning_rate=2e-4):
