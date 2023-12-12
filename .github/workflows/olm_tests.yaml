@@ -125,7 +125,7 @@ jobs:
           export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
           echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
           set -euo pipefail
-          go test -timeout 30m -v ./test/upgrade -run TestMNISTCreateAppWrapper -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+          go test -timeout 30m -v ./test/upgrade -run TestMNISTRayClusterUp -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
 
       - name: Update Operator to the built version
         run: |
@@ -174,7 +174,7 @@ jobs:
           export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
           echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
           set -euo pipefail
-          go test -timeout 30m -v ./test/upgrade -run TestMNISTCheckAppWrapperStatus -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
+          go test -timeout 30m -v ./test/upgrade -run TestMnistJobSubmit -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
 
       - name: Run e2e tests against built operator
         run: |
