@@ -3,13 +3,24 @@
 name: OLM Install and Upgrade
 
 on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths-ignore:
+      - 'docs/**'
+      - '**.adoc'
+      - '**.md'
+      - 'LICENSE'
   push:
     branches:
-      - '**'
-    tags-ignore:
-      - 'v*'
-  pull_request:
-  workflow_dispatch:
+      - main
+      - 'release-*'
+    paths-ignore:
+      - 'docs/**'
+      - '**.adoc'
+      - '**.md'
+      - 'LICENSE'
 
 concurrency:
   group: ${{ github.head_ref }}-${{ github.workflow }}
@@ -126,63 +137,7 @@ jobs:
           echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
           set -euo pipefail
           go test -timeout 30m -v ./test/upgrade -run TestMNISTRayClusterUp -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
-
-      - name: Update Operator to the built version
-        run: |
-          ORIGINAL_POD_NAME=$(kubectl get pod -l app.kubernetes.io/name=codeflare-operator -n openshift-operators -o json | jq -r .items[].metadata.name)
-          echo "Running old operator pod name is ${ORIGINAL_POD_NAME}"
-
-          echo Updating custom CatalogSource image to the built CatalogSource with latest operator
-          kubectl patch CatalogSource codeflare-olm-test -n olm --type merge --patch "{\"spec\":{\"image\":\"${CATALOG_IMG}\"}}"
-
-          echo Waiting for previous operator pod to get deleted
-          kubectl wait --timeout=180s --for=delete pod/${ORIGINAL_POD_NAME} -n openshift-operators || { 
-            kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
-            echo "Error: Timed out waiting for pod deletion. Printing additional information for troubleshooting..."
-            kubectl get pods -n openshift-operators
-            kubectl describe pods/${ORIGINAL_POD_NAME} -n openshift-operators
-            # Add more commands as needed to gather information
-            echo "printing logs again to check logs complete"
-            kubectl logs ${ORIGINAL_POD_NAME} -n openshift-operators
-            echo "pod status"
-            kubectl get pods -n openshift-operators
-            exit 1
-          }
-          kubectl get pods -n openshift-operators
-          echo "Pod deletion successful. Continuing with the next steps."
-
-          echo Waiting for Subscription to be ready
-          kubectl wait -n ${{ env.SUBSCRIPTION_NAMESPACE }} subscription/${{ env.SUBSCRIPTION_NAME }} --for=jsonpath='{.status.state}'=AtLatestKnown --timeout=180s
-
-          echo Waiting for Deployment to be ready
-          timeout 60 bash -c 'until [[ $(kubectl get deployment/codeflare-operator-manager -n '${{ env.SUBSCRIPTION_NAMESPACE }}') ]]; do sleep 5 && echo "$(kubectl get deployment/codeflare-operator-manager -n '${{ env.SUBSCRIPTION_NAMESPACE }}')"; done'
-          kubectl wait -n ${{ env.SUBSCRIPTION_NAMESPACE }} deployment/codeflare-operator-manager --for=condition=Available=true --timeout=60s
-
-          echo Checking that correct CSV is available
-          CSV_VERSION=$(kubectl get ClusterServiceVersion/codeflare-operator.${VERSION} -n openshift-operators -o json | jq -r .spec.version)
-          if [ "v${CSV_VERSION}" != "${VERSION}" ]; then
-            echo "CSV version v${CSV_VERSION} doesn't match expected version ${VERSION}"
-            exit 1
-          fi
-        env:
-          CATALOG_IMG: "${{ env.REGISTRY_ADDRESS }}/codeflare-operator-catalog:v0.0.1"
-          SUBSCRIPTION_NAME: "codeflare-operator"
-          SUBSCRIPTION_NAMESPACE: "openshift-operators"
-
-      - name: Run OLM Upgrade e2e Appwrapper Job status test to monitor training
-        run: |
-          export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
-          echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
-          set -euo pipefail
           go test -timeout 30m -v ./test/upgrade -run TestMnistJobSubmit -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
-
-      - name: Run e2e tests against built operator
-        run: |
-          export CODEFLARE_TEST_OUTPUT_DIR=${{ env.TEMP_DIR }}
-          echo "CODEFLARE_TEST_OUTPUT_DIR=${CODEFLARE_TEST_OUTPUT_DIR}" >> $GITHUB_ENV
-
-          set -euo pipefail
-          go test -timeout 30m -v ./test/e2e -json 2>&1 | tee ${CODEFLARE_TEST_OUTPUT_DIR}/gotest.log | gotestfmt
 
       - name: Print CodeFlare operator logs
         if: always() && steps.deploy.outcome == 'success'

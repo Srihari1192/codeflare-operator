@@ -19,6 +19,7 @@ package e2e
 import (
 	"testing"
 
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	. "github.com/project-codeflare/codeflare-common/support"
 	mcadv1beta1 "github.com/project-codeflare/multi-cluster-app-dispatcher/pkg/apis/controller/v1beta1"
@@ -30,23 +31,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Creates a Ray cluster, and trains the MNIST dataset using the CodeFlare SDK.
-// Asserts successful completion of the training job.
-//
-// This covers the installation of the CodeFlare SDK, as well as the RBAC required
-// for the SDK to successfully perform requests to the cluster, on behalf of the
-// impersonated user.
-func TestMNISTRayClusterSDK(t *testing.T) {
+func TestRayClusterAuth(t *testing.T) {
 	test := With(t)
 	test.T().Parallel()
-	test.T().Skipf("Skipping test for testing purpose ")
+	if GetClusterType(test) == KindCluster {
+		test.T().Skipf("Skipping test as not running on an openshift cluster, resolved cluster type: ")
+	}
+
+	// clusterType := GetClusterType(test)
+	// if clusterType != OsdCluster {
+	// 	test.T().Skipf("Skipping test as not running on an OSD cluster, resolved cluster type: %s", clusterType)
+	// }
+
 	// Create a namespace
+	//namespace := CreateTestNamespaceWithName(test, "test-ns-auth")
 	namespace := test.NewTestNamespace()
 
 	// Test configuration
 	config := CreateConfigMap(test, namespace.Name, map[string][]byte{
 		// SDK script
-		"mnist_raycluster_sdk.py": ReadFile(test, "mnist_raycluster_sdk.py"),
+		"mnist_raycluster_sdk_auth.py": ReadFile(test, "mnist_raycluster_sdk_auth.py"),
 		// pip requirements
 		"requirements.txt": ReadFile(test, "mnist_pip_requirements.txt"),
 		// MNIST training script
@@ -121,7 +125,7 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 								{Name: "PYTHONUSERBASE", Value: "/workdir"},
 								{Name: "RAY_IMAGE", Value: GetRayImage()},
 							},
-							Command: []string{"/bin/sh", "-c", "cp /test/* . && chmod +x install-codeflare-sdk.sh && ./install-codeflare-sdk.sh && python mnist_raycluster_sdk.py" + " " + namespace.Name},
+							Command: []string{"/bin/sh", "-c", "cp /test/* . && chmod +x install-codeflare-sdk.sh && ./install-codeflare-sdk.sh && python mnist_raycluster_sdk_auth.py" + " " + namespace.Name},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "test",
@@ -179,37 +183,28 @@ func TestMNISTRayClusterSDK(t *testing.T) {
 			},
 		},
 	}
-	if GetClusterType(test) == KindCluster {
-		// Take first KinD node and redirect pod hostname requests there
-		node := GetNodes(test)[0]
-		hostname := GetClusterHostname(test)
-		IP := GetNodeInternalIP(test, node)
-
-		test.T().Logf("Setting KinD cluster hostname '%s' to node IP '%s' for SDK pod", hostname, IP)
-		job.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
-			{
-				IP:        IP,
-				Hostnames: []string{hostname},
-			},
-		}
-
-		// Propagate hostname into Python code as env variable
-		hostnameEnvVar := corev1.EnvVar{Name: "CLUSTER_HOSTNAME", Value: hostname}
-		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, hostnameEnvVar)
-	}
 
 	job, err := test.Client().Core().BatchV1().Jobs(namespace.Name).Create(test.Ctx(), job, metav1.CreateOptions{})
 	test.Expect(err).NotTo(HaveOccurred())
 	test.T().Logf("Created Job %s/%s successfully", job.Namespace, job.Name)
 
+	//get pod name
+	job, err = test.Client().Core().BatchV1().Jobs(namespace.Name).Get(test.Ctx(), "sdk", metav1.GetOptions{})
+	test.Expect(err).NotTo(HaveOccurred())
+
 	test.T().Logf("Waiting for Job %s/%s to complete", job.Namespace, job.Name)
 	test.Eventually(Job(test, job.Namespace, job.Name), TestTimeoutLong).Should(
-		Or(
-			WithTransform(ConditionStatus(batchv1.JobComplete), Equal(corev1.ConditionTrue)),
-			WithTransform(ConditionStatus(batchv1.JobFailed), Equal(corev1.ConditionTrue)),
-		))
+		WithTransform(ConditionStatus(batchv1.JobFailed), Equal(corev1.ConditionTrue)))
 
-	// Assert the job has completed successfully
-	test.Expect(GetJob(test, job.Namespace, job.Name)).
-		To(WithTransform(ConditionStatus(batchv1.JobComplete), Equal(corev1.ConditionTrue)))
+	options := metav1.ListOptions{
+		LabelSelector: "job-name=sdk",
+	}
+
+	pods := GetPods(test, namespace.Name, options)
+
+	for _, pod := range pods {
+		podLogs := GetPodLogs(test, &pod, corev1.PodLogOptions{})
+		expectedLogError := "kubernetes.client.exceptions.ApiException: (403)\nReason: Forbidden"
+		test.Expect(string(podLogs)).To(gomega.ContainSubstring(expectedLogError))
+	}
 }

@@ -1,24 +1,13 @@
 name: e2e
 
 on:
-  pull_request:
-    branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.adoc'
-      - '**.md'
-      - 'LICENSE'
   push:
     branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.adoc'
-      - '**.md'
-      - 'LICENSE'
+      - '**'
+    tags-ignore:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.head_ref }}-${{ github.workflow }}
@@ -27,7 +16,7 @@ concurrency:
 jobs:
   kubernetes-e2e:
 
-    runs-on: ubuntu-20.04-4core
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout code

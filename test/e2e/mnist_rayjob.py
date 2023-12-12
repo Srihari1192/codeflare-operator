@@ -27,10 +27,9 @@ if host is not None:
     }
 
 
-
 cluster = get_cluster('mnist',namespace)
 
-print(cluster.details())
+# print(cluster.details())
 
 jobdef = DDPJobDefinition(
     name="mnist",
