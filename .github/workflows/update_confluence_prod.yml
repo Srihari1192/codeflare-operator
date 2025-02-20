@@ -1,4 +1,4 @@
-name: Update Confluence Table
+name: Update Confluence Table PROD
 
 on:
   workflow_dispatch:  # Manually trigger the workflow with input values
@@ -20,22 +20,39 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Fetch Current Page Content
+      - name: Fetch Confluence Page ID by Title
         run: |
-          echo "Fetching Confluence page content..."
-          response=$(curl -s -u "${{ secrets.CONFLUENCE_USER }}:${{ secrets.CONFLUENCE_API_TOKEN }}" \
-            -X GET "${{ secrets.CONFLUENCE_BASE_URL }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID }}?expand=body.storage,version")
+          echo "Fetching Confluence page ID..."
+          response=$(curl -s -u "${CONFLUENCE_USER_PROD}:${CONFLUENCE_API_TOKEN_PROD}" \
+            -X GET "${CONFLUENCE_BASE_URL_PROD}/rest/api/content?title=${PAGE_TITLE}&spaceKey=${SPACE_KEY_PROD}&expand=body.storage")
+          echo "Confluence API Response: $response"
+          echo "Raw Response:"
+          echo "$response"
 
-          echo "Validating response JSON"
-          # echo "$response" | jq '.' > page_data.json
-          # Validate response JSON
-          if echo "$response" | jq . > /dev/null 2>&1; then
-            echo "$response" | jq '.' > page_data.json
-          else
-            echo "Error: Invalid JSON response from Confluence API"
+          # Extract page ID from response
+          PAGE_ID=$(echo "$response" | jq -r '.results[0].id')
+          
+          if [[ -z "$PAGE_ID" || "$PAGE_ID" == "null" ]]; then
+            echo "Error: Could not find Confluence page ID"
             exit 1
           fi
-          
+
+          echo "Found Confluence Page ID: $PAGE_ID"
+          echo "PAGE_ID=$PAGE_ID" >> $GITHUB_ENV
+         env:
+            CONFLUENCE_USER_PROD: ${{ secrets.CONFLUENCE_USER_PROD }}
+            CONFLUENCE_API_TOKEN_PROD: ${{ secrets.CONFLUENCE_API_TOKEN_PROD }}
+            CONFLUENCE_BASE_URL_PROD: ${{ secrets.CONFLUENCE_BASE_URL_PROD }}
+            PAGE_TITLE: ${{ secrets.PAGE_TITLE }}
+            SPACE_KEY_PROD: ${{ secrets.SPACE_KEY_PROD }}
+
+
+      - name: Fetch Current Page Content
+        run: |
+          response=$(curl -u "${{ secrets.CONFLUENCE_USER_PROD }}:${{ secrets.CONFLUENCE_API_TOKEN_PROD }}" \
+            -X GET "${{ secrets.CONFLUENCE_BASE_URL_PROD }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID_PROD }}?expand=body.storage,version")
+
+          echo "$response" | jq '.' > page_data.json
           echo "Extracting version..."
           VERSION=$(jq '.version.number' page_data.json)
           echo "PAGE_VERSION=$VERSION" >> $GITHUB_ENV
@@ -57,9 +74,9 @@ jobs:
         run: |
           UPDATED_CONTENT=$(cat page_content.html | jq -Rs .)
 
-          curl -u "${{ secrets.CONFLUENCE_USER }}:${{ secrets.CONFLUENCE_API_TOKEN }}" \
+          curl -u "${{ secrets.CONFLUENCE_USER_PROD }}:${{ secrets.CONFLUENCE_API_TOKEN_PROD }}" \
             -X PUT -H "Content-Type: application/json" -d "{
-              \"id\": \"${{ secrets.CONFLUENCE_PAGE_ID }}\",
+              \"id\": \"${{ secrets.CONFLUENCE_PAGE_ID_PROD }}\",
               \"type\": \"page\",
               \"title\": \"Release Details\",
               \"space\": { \"key\": \"TST\" },
@@ -72,4 +89,4 @@ jobs:
               \"version\": {
                 \"number\": $(( $PAGE_VERSION + 1 ))
               }
-            }" "${{ secrets.CONFLUENCE_BASE_URL }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID }}"
+            }" "${{ secrets.CONFLUENCE_BASE_URL_PROD }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID_PROD }}"
