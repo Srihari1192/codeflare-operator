@@ -1,0 +1,86 @@
+name: Update Confluence Table
+
+on:
+  workflow_dispatch:  # Manually trigger the workflow with input values
+    inputs:
+      new_release:
+        description: 'New Release Version'
+        required: true
+      kueue_version:
+        description: 'Kueue Version'
+        required: true
+      codeflare_version:
+        description: 'CodeFlare Version'
+        required: true
+
+jobs:
+  update-confluence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Confluence Page ID by Title
+        run: |
+          echo "Fetching Confluence page ID..."
+          response=$(curl -s -u "${{ secrets.CONFLUENCE_USER_PROD }}:${{ secrets.CONFLUENCE_API_TOKEN_PROD }}" \
+            -X GET "${{ secrets.CONFLUENCE_BASE_URL_PROD }}/rest/api/content?title=${{ secrets.PAGE_TITLE }}&spaceKey=${{ secrets.SPACE_KEY_PROD }}&expand=body.storage")
+
+          echo "Raw Response:"
+          echo "$response"
+
+          # Extract page ID from response
+          PAGE_ID=$(echo "$response" | jq -r '.results[0].id')
+          
+          if [[ -z "$PAGE_ID" || "$PAGE_ID" == "null" ]]; then
+            echo "Error: Could not find Confluence page ID"
+            exit 1
+          fi
+
+          echo "Found Confluence Page ID: $PAGE_ID"
+          echo "PAGE_ID=$PAGE_ID" >> $GITHUB_ENV
+
+
+      - name: Fetch Current Page Content
+        run: |
+          response=$(curl -u "${{ secrets.CONFLUENCE_USER_PROD }}:${{ secrets.CONFLUENCE_API_TOKEN_PROD }}" \
+            -X GET "${{ secrets.CONFLUENCE_BASE_URL_PROD }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID_PROD }}?expand=body.storage,version")
+
+          echo "$response" | jq '.' > page_data.json
+          echo "Extracting version..."
+          VERSION=$(jq '.version.number' page_data.json)
+          echo "PAGE_VERSION=$VERSION" >> $GITHUB_ENV
+
+          echo "Extracting HTML content..."
+          jq -r '.body.storage.value' page_data.json > page_content.html
+
+      - name: Modify Table and Append New Row
+        run: |
+          NEW_RELEASE="${{ github.event.inputs.new_release }}"
+          KUEUE_VERSION="${{ github.event.inputs.kueue_version }}"
+          CODEFLARE_VERSION="${{ github.event.inputs.codeflare_version }}"
+
+          echo "Appending new row with values: $NEW_RELEASE, $KUEUE_VERSION, $CODEFLARE_VERSION"
+          sed -i '/<\/tbody>/i \
+          <tr role="row"><td class="confluenceTd">'$NEW_RELEASE'</td><td class="confluenceTd">'$KUEUE_VERSION'</td><td class="confluenceTd">'$CODEFLARE_VERSION'</td></tr>' page_content.html
+
+      - name: Update Confluence Page
+        run: |
+          UPDATED_CONTENT=$(cat page_content.html | jq -Rs .)
+
+          curl -u "${{ secrets.CONFLUENCE_USER_PROD }}:${{ secrets.CONFLUENCE_API_TOKEN_PROD }}" \
+            -X PUT -H "Content-Type: application/json" -d "{
+              \"id\": \"${{ secrets.CONFLUENCE_PAGE_ID_PROD }}\",
+              \"type\": \"page\",
+              \"title\": \"Release Details\",
+              \"space\": { \"key\": \"TST\" },
+              \"body\": {
+                \"storage\": {
+                  \"value\": $UPDATED_CONTENT,
+                  \"representation\": \"storage\"
+                }
+              },
+              \"version\": {
+                \"number\": $(( $PAGE_VERSION + 1 ))
+              }
+            }" "${{ secrets.CONFLUENCE_BASE_URL_PROD }}/rest/api/content/${{ secrets.CONFLUENCE_PAGE_ID_PROD }}"
