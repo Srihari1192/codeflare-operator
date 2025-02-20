@@ -30,14 +30,24 @@ on:
         description: 'GitHub organization/user containing repositories used for release'
         required: true
         default: 'project-codeflare'
-      quay-organization:
-        description: 'Quay organization used to push the built images to'
-        required: true
-        default: 'project-codeflare'
-      community-operators-prod-organization:
-        description: 'Owner of target community-operators-prod repository used to open a PR against'
-        required: true
-        default: 'redhat-openshift-ecosystem'
+      # quay-organization:
+      #   description: 'Quay organization used to push the built images to'
+      #   required: true
+      #   default: 'project-codeflare'
+      # community-operators-prod-organization:
+      #   description: 'Owner of target community-operators-prod repository used to open a PR against'
+      #   required: true
+      #   default: 'redhat-openshift-ecosystem'
+      update-component-version-confluence:
+        description: "Update components version to confluence if release is before Code Freeze"
+        required: false
+        default: "false"
+        type: boolean
+      rhoai-release-version:
+        description: "RHOAI Release version (Required if updating component version to Confluence)"
+        required: false  # Not required by default
+        default: ""
+
 
 jobs:
   release-parameters:
@@ -54,133 +64,152 @@ jobs:
         echo "Tested Kueue Version: ${{ github.event.inputs.kueue-version }}"
         echo "Is Stable: ${{ github.event.inputs.is-stable }}"
         echo "CodeFlare Repository Organization: ${{ github.event.inputs.codeflare-repository-organization }}"
-        echo "Quay Organization: ${{ github.event.inputs.quay-organization }}"
-        echo "Community Operators Prod Organization: ${{ github.event.inputs.community-operators-prod-organization }}"
+        # echo "Quay Organization: ${{ github.event.inputs.quay-organization }}"
+        # echo "Community Operators Prod Organization: ${{ github.event.inputs.community-operators-prod-organization }}"
+        echo "Update components version to confluence if release is before Code Freeze: ${{ github.event.inputs.update-component-version-confluence }}"
+        echo "RHOAI Release version : ${{ github.event.inputs.rhoai-release-version }}"
+        
+  # release-codeflare-sdk:
+  #   needs: [check-appwrapper-version, check-kuberay-version, check-kueue-version]
+  #   runs-on: ubuntu-latest
 
-  release-codeflare-sdk:
-    needs: [check-appwrapper-version, check-kuberay-version, check-kueue-version]
-    runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Check if Codeflare SDK release does exist
+  #     run: |
+  #       status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/project-codeflare/codeflare-sdk/releases/tag/${{ github.event.inputs.codeflare-sdk-version }})
+  #       if [[ "$status_code" == "200" ]]; then
+  #         echo "SDK release with version ${{ github.event.inputs.codeflare-sdk-version }} already exist. Will not create SDK release."
+  #       fi
+  #       echo "SDK_RELEASE_STATUS_CODE=$status_code" >> $GITHUB_ENV
 
+  #   - name: Release CodeFlare SDK
+  #     run: |
+  #       semver_version="${{ github.event.inputs.codeflare-sdk-version }}"
+  #       plain_version="${semver_version:1}"
+  #       gh workflow run release.yaml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --ref ${{ github.ref }} --field release-version=${plain_version} --field is-stable=${{ github.event.inputs.is-stable }} --field quay-organization=${{ github.event.inputs.quay-organization }}
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
+  #     shell: bash
+  #     if: ${{ env.SDK_RELEASE_STATUS_CODE != '200' }}
+
+  #   - name: Wait for CodeFlare SDK run to finish
+  #     run: |
+  #       # wait for a while for Run to be started
+  #       sleep 5
+  #       run_id=$(gh run list --workflow release.yaml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --limit 1 --json databaseId --jq .[].databaseId)
+  #       gh run watch ${run_id} --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --interval 10 --exit-status
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
+  #     shell: bash
+  #     if: ${{ env.SDK_RELEASE_STATUS_CODE != '200' }}
+
+  # release-codeflare-operator:
+  #   needs: [release-codeflare-sdk]
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Release CodeFlare operator
+  #     run: |
+  #       gh workflow run tag-and-build.yml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator \
+  #       --ref ${{ github.ref }} \
+  #       --field is-stable=${{ github.event.inputs.is-stable }} \
+  #       --field version=${{ github.event.inputs.operator-version }} \
+  #       --field replaces=${{ github.event.inputs.replaces }} \
+  #       --field codeflare-sdk-version=${{ github.event.inputs.codeflare-sdk-version }} \
+  #       --field appwrapper-version=${{ github.event.inputs.appwrapper-version }} \
+  #       --field kuberay-version=${{ github.event.inputs.kuberay-version }} \
+  #       --field kueue-version=${{ github.event.inputs.kueue-version }} \
+  #       --field quay-organization=${{ github.event.inputs.quay-organization }} \
+  #       --field community-operators-prod-fork-organization=${{ github.event.inputs.codeflare-repository-organization }} \
+  #       --field community-operators-prod-organization=${{ github.event.inputs.community-operators-prod-organization }}
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
+  #     shell: bash
+
+  #   - name: Wait for CodeFlare operator run to finish
+  #     run: |
+  #       # wait for a while for Run to be started
+  #       sleep 5
+  #       run_id=$(gh run list --workflow tag-and-build.yml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator --limit 1 --json databaseId --jq .[].databaseId)
+  #       gh run watch ${run_id} --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator --interval 10 --exit-status
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
+  #     shell: bash
+
+  # check-appwrapper-version:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Check if AppWrapper release exists
+  #     run: |
+  #       status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/project-codeflare/appwrapper/releases/tag/${{ github.event.inputs.appwrapper-version }})
+  #       if [[ "$status_code" == "200" ]]; then
+  #         echo "AppWrapper release with version ${{ github.event.inputs.appwrapper-version }} exists and available to use."
+  #       else
+  #         echo "AppWrapper release with version ${{ github.event.inputs.appwrapper-version }} does not exist. Please select an existing version."
+  #         exit 1
+  #       fi
+
+  # check-kuberay-version:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Check if KubeRay release exists
+  #     run: |
+  #       status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/ray-project/kuberay/releases/tag/${{ github.event.inputs.kuberay-version }})
+  #       if [[ "$status_code" == "200" ]]; then
+  #         echo "KubeRay release with version ${{ github.event.inputs.kuberay-version }} exists and available to use."
+  #       else
+  #         echo "KubeRay release with version ${{ github.event.inputs.kuberay-version }} does not exist. Please select an existing version."
+  #         exit 1
+  #       fi
+
+  # check-kueue-version:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Check if Kueue release exists
+  #     run: |
+  #       status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/kubernetes-sigs/kueue/releases/tag/${{ github.event.inputs.kueue-version }})
+  #       if [[ "$status_code" == "200" ]]; then
+  #         echo "Kueue release with version ${{ github.event.inputs.kueue-version }} exists and available to use."
+  #       else
+  #         echo "Kueue release with version ${{ github.event.inputs.kueue-version }} does not exist. Please select an existing version."
+  #         exit 1
+  #       fi
+
+  # generate-component-metadata:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Ensure config folder exists
+  #     run: mkdir -p config
+
+  #   - name: Generate component_metadata.yaml
+  #     run: |
+  #       cat <<EOL > config/component_metadata.yaml
+  #       releases:
+  #         - name: CodeFlare Operator
+  #           version: ${{ github.event.inputs.operator-version }}
+  #           repoUrl: https://github.com/project-codeflare/codeflare-operator
+  #       EOL
+
+  #   - name: Verify generated file
+  #     run: cat config/component_metadata.yaml
+
+  Update_release_version_info_to_confluence:
+    runs-on : ubuntu-latest
     steps:
-    - name: Check if Codeflare SDK release does exist
-      run: |
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/project-codeflare/codeflare-sdk/releases/tag/${{ github.event.inputs.codeflare-sdk-version }})
-        if [[ "$status_code" == "200" ]]; then
-          echo "SDK release with version ${{ github.event.inputs.codeflare-sdk-version }} already exist. Will not create SDK release."
-        fi
-        echo "SDK_RELEASE_STATUS_CODE=$status_code" >> $GITHUB_ENV
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Release CodeFlare SDK
-      run: |
-        semver_version="${{ github.event.inputs.codeflare-sdk-version }}"
-        plain_version="${semver_version:1}"
-        gh workflow run release.yaml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --ref ${{ github.ref }} --field release-version=${plain_version} --field is-stable=${{ github.event.inputs.is-stable }} --field quay-organization=${{ github.event.inputs.quay-organization }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
-      shell: bash
-      if: ${{ env.SDK_RELEASE_STATUS_CODE != '200' }}
-
-    - name: Wait for CodeFlare SDK run to finish
-      run: |
-        # wait for a while for Run to be started
-        sleep 5
-        run_id=$(gh run list --workflow release.yaml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --limit 1 --json databaseId --jq .[].databaseId)
-        gh run watch ${run_id} --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-sdk --interval 10 --exit-status
-      env:
-        GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
-      shell: bash
-      if: ${{ env.SDK_RELEASE_STATUS_CODE != '200' }}
-
-  release-codeflare-operator:
-    needs: [release-codeflare-sdk]
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Release CodeFlare operator
-      run: |
-        gh workflow run tag-and-build.yml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator \
-        --ref ${{ github.ref }} \
-        --field is-stable=${{ github.event.inputs.is-stable }} \
-        --field version=${{ github.event.inputs.operator-version }} \
-        --field replaces=${{ github.event.inputs.replaces }} \
-        --field codeflare-sdk-version=${{ github.event.inputs.codeflare-sdk-version }} \
-        --field appwrapper-version=${{ github.event.inputs.appwrapper-version }} \
-        --field kuberay-version=${{ github.event.inputs.kuberay-version }} \
-        --field kueue-version=${{ github.event.inputs.kueue-version }} \
-        --field quay-organization=${{ github.event.inputs.quay-organization }} \
-        --field community-operators-prod-fork-organization=${{ github.event.inputs.codeflare-repository-organization }} \
-        --field community-operators-prod-organization=${{ github.event.inputs.community-operators-prod-organization }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
-      shell: bash
-
-    - name: Wait for CodeFlare operator run to finish
-      run: |
-        # wait for a while for Run to be started
-        sleep 5
-        run_id=$(gh run list --workflow tag-and-build.yml --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator --limit 1 --json databaseId --jq .[].databaseId)
-        gh run watch ${run_id} --repo ${{ github.event.inputs.codeflare-repository-organization }}/codeflare-operator --interval 10 --exit-status
-      env:
-        GITHUB_TOKEN: ${{ secrets.CODEFLARE_MACHINE_ACCOUNT_TOKEN }}
-      shell: bash
-
-  check-appwrapper-version:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check if AppWrapper release exists
-      run: |
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/project-codeflare/appwrapper/releases/tag/${{ github.event.inputs.appwrapper-version }})
-        if [[ "$status_code" == "200" ]]; then
-          echo "AppWrapper release with version ${{ github.event.inputs.appwrapper-version }} exists and available to use."
-        else
-          echo "AppWrapper release with version ${{ github.event.inputs.appwrapper-version }} does not exist. Please select an existing version."
-          exit 1
-        fi
-
-  check-kuberay-version:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check if KubeRay release exists
-      run: |
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/ray-project/kuberay/releases/tag/${{ github.event.inputs.kuberay-version }})
-        if [[ "$status_code" == "200" ]]; then
-          echo "KubeRay release with version ${{ github.event.inputs.kuberay-version }} exists and available to use."
-        else
-          echo "KubeRay release with version ${{ github.event.inputs.kuberay-version }} does not exist. Please select an existing version."
-          exit 1
-        fi
-
-  check-kueue-version:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check if Kueue release exists
-      run: |
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" https://github.com/kubernetes-sigs/kueue/releases/tag/${{ github.event.inputs.kueue-version }})
-        if [[ "$status_code" == "200" ]]; then
-          echo "Kueue release with version ${{ github.event.inputs.kueue-version }} exists and available to use."
-        else
-          echo "Kueue release with version ${{ github.event.inputs.kueue-version }} does not exist. Please select an existing version."
-          exit 1
-        fi
-
-  generate-component-metadata:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Ensure config folder exists
-      run: mkdir -p config
-
-    - name: Generate component_metadata.yaml
-      run: |
-        cat <<EOL > config/component_metadata.yaml
-        releases:
-          - name: CodeFlare Operator
-            version: ${{ github.event.inputs.operator-version }}
-            repoUrl: https://github.com/project-codeflare/codeflare-operator
-        EOL
-
-    - name: Verify generated file
-      run: cat config/component_metadata.yaml
+      - name: fetch and update component released version details
+        if: github.event.inputs.update-component-version-confluence == 'true'
+        run : |
+           gh workflow run update_confluence.yml --ref updateReleaseDetails\
+            --field rhoai-release-version=${{ github.event.inputs.rhoai-release-version }} \
+            --field kueue-version=${{ github.event.inputs.kueue-version }} \
+            --field codeflare-sdk-version=${{ github.event.inputs.codeflare-sdk-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
