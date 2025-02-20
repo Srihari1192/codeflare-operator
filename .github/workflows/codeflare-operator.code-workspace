@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "path": "../.."
+        },
+        {
+            "path": "../../../dashboard_sanity/odh-dashboard"
+        },
+        {
+            "path": "../../../codeflare-sdk"
+        },
+        {
+            "path": "../../../distributed-workloads"
+        }
+    ]
+}
